@@ -1,0 +1,84 @@
+---
+- name: In-Memory Inventory
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars:
+    guid: "{{ lookup('ENV','GUID') }}"
+    home: "{{ lookup('ENV','HOME') }}"
+    internal_domain: "{{guid}}.internal"
+
+  tasks:
+    - name: Collection instance info
+      os_server_info:
+        cloud: "{{ guid }}-project"
+      register: instances
+
+    - name: Build In-Memory inventory for -osp_instances-
+      add_host:
+        host: "{{ instance.name }}.{{ internal_domain }}"
+        group: "{{ instance.metadata.AnsibleGroup }}"
+        ansible_host: "{{ instance.private_v4 }}"
+        ssh_private_key_file: "{{ home }}/.ssh/{{ guid }}key.pem"
+      when: instance.metadata.AnsibleGroup == "app_servers" or instance.metadata.AnsibleGroup == "load_balancers" or instance.metadata.AnsibleGroup == "database_servers"
+      loop: "{{ instances.openstack_servers }}"
+      loop_control:
+        loop_var: instance
+
+#    - name: Build In-Memory inventory -app_servers-
+#      add_host:
+#        host: "{{ item }}.{{ internal_domain }}"
+#        group: "app_servers"
+#      loop:
+#        - app1
+#        - app2
+#
+#    - name: Build In-Memory inventory -load_balancers-
+#      add_host:
+#        host: "frontend1.{{ internal_domain }}"
+#        group: "load_balancers"
+#
+#    - name: Build In-Memory inventory -database_servers-
+#      add_host:
+#        host: "{{ instance.name }}.{{ internal_domain }}"
+#        group: "database_servers"
+#        ansible_host: "{{ instance.private_v4 }}"
+#      when: instance.name == "appdb1"  
+#      loop: "{{ instances.openstack_servers }}"
+#      loop_control:
+#        loop_var: instance
+#
+#    - name: Build In-Memory inventory Groups 
+#      add_host:
+#        host: "{{ item }}" 
+#        groups: "internal:children"
+#      loop:
+#        - load_balancers
+#        - app_servers
+#        - database_servers
+
+- name: Print current hosts
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tasks:
+    - debug: var=groups
+
+
+- name: Print current hosts
+  hosts: all
+  connection: local
+  gather_facts: false
+  tasks:
+#    - debug: var=groups
+    - debug: msg={{ ansible_ssh_host }}
+
+- name: Verify OpenStack Instances
+  hosts: app_servers
+  tasks:
+    - name: Verify connectivity
+      ping:
+      register: output
+
+    - debug:
+        msg: "{{ output }}"
